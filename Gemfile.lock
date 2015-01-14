@@ -12,6 +12,7 @@ GEM
       ice_nine (~> 0.11.0)
       thread_safe (~> 0.3, >= 0.3.1)
     builder (3.2.2)
+    buzztools (0.0.8)
     celluloid (0.16.0)
       timers (~> 4.0.0)
     coderay (1.1.0)
@@ -119,6 +120,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  buzztools
   grape (~> 0.10.1)
   grape-entity (~> 0.4.4)
   guard (~> 2.10.5)
