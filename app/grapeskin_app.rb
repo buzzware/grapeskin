@@ -114,6 +114,10 @@ end
 
 module Grapeskin
   class App
+    CONFIG = {
+      grape_paths: [File.expand_path('../grapes',File.dirname(__FILE__))]
+    }
+
     def initialize
       # @filenames = ['', '.html', 'index.html', '/index.html']
       # @rack_static = ::Rack::Static.new(
