@@ -13,5 +13,9 @@ describe Grapeskin::App do
       expect(last_response.status).to eq(200)
       expect(last_response.body).to include 'pong'
     end
+    it 'handles missing app as 404' do
+	    get '/blah'
+      expect(last_response.status).to eq(404)
+    end
   end
 end

@@ -140,6 +140,16 @@ module Grapeskin
       end.to_app
     end
 
+    ERROR_DEFAULTS = {
+      status: 404,
+      message: 'unknown',
+      errors: nil,
+    }
+    def error(aOptions={})
+      options = ERROR_DEFAULTS.merge(aOptions)
+      Rack::Response.new(options.to_json, options[:status])
+    end
+
     def call(env)
       puts env.inspect
 
@@ -147,16 +157,16 @@ module Grapeskin
       parts = path.split('/').delete_if {|s| s==''}
       app_name = parts[0]
 
-      raise "no grape_paths" unless CONFIG[:grape_paths] && CONFIG[:grape_paths].length>0
+      return error(errors: ["no grape_paths"], status: 501) unless CONFIG[:grape_paths] && CONFIG[:grape_paths].length>0
       api_path = nil
       CONFIG[:grape_paths].each do |p|
         ap = File.join(p,"#{app_name}/api.rb")
         api_path = ap and break if File.exists? ap
       end
-      raise "#{app_name}/api.rb not found in grapes paths" unless api_path
+      return error() unless api_path
       require api_path
       class_name = "#{app_name.camelize}::API"
-      cls = class_name.safe_constantize or raise "#{class_name} class not found"
+      cls = class_name.safe_constantize or return error(errors: ["#{class_name} class not found"], status: 501)
       #cls.prefix("/#{app_name}")
       #cls.endpoints.each {|e| e.options[:path] ||= "/#{app_name}"
       cls.call(env)
