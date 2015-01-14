@@ -143,11 +143,18 @@ module Grapeskin
       parts = path.split('/').delete_if {|s| s==''}
       app_name = parts[0]
 
-      require "#{app_name}/api"
-      cls = "#{app_name.camelize}::API".safe_constantize
+      raise "no grape_paths" unless CONFIG[:grape_paths] && CONFIG[:grape_paths].length>0
+      api_path = nil
+      CONFIG[:grape_paths].each do |p|
+        ap = File.join(p,"#{app_name}/api.rb")
+        api_path = ap and break if File.exists? ap
+      end
+      raise "#{app_name}/api.rb not found in grapes paths" unless api_path
+      require api_path
+      class_name = "#{app_name.camelize}::API"
+      cls = class_name.safe_constantize or raise "#{class_name} class not found"
       #cls.prefix("/#{app_name}")
       #cls.endpoints.each {|e| e.options[:path] ||= "/#{app_name}"
-
       cls.call(env)
     end
 
