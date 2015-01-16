@@ -4,7 +4,7 @@ describe Grapeskin::App do
   include Rack::Test::Methods
 
   def app
-    Grapeskin::App.instance
+    Grapeskin::App.new
   end
 
   context 'routing' do

@@ -114,11 +114,9 @@ end
 
 module Grapeskin
   class App
-    CONFIG = {
-      grape_paths: [File.expand_path('../grapes',File.dirname(__FILE__))]
-    }
 
-    def initialize
+    def initialize(aOptions=nil)
+      aOptions ||= {}
       # @filenames = ['', '.html', 'index.html', '/index.html']
       # @rack_static = ::Rack::Static.new(
       #   lambda { [404, {}, []] },
@@ -127,17 +125,50 @@ module Grapeskin
       #   )
     end
 
+    def call(env)
+      env['rack.logger'] = CONFIG[:error_logger]
+      path = env['PATH_INFO']
+      parts = path.split('/').delete_if {|s| s==''}
+      app_name = parts[0]
+
+      return error(errors: ["no grape_paths"], status: 501) unless CONFIG[:grape_paths] && CONFIG[:grape_paths].length>0
+      api_path = nil
+      CONFIG[:grape_paths].each do |p|
+        p = File.expand_path(p, File.dirname(__FILE__)+'/..')
+        ap = File.join(p,"#{app_name}/api.rb")
+        api_path = ap and break if File.exists? ap
+      end
+      return error() unless api_path
+      require api_path
+      class_name = "#{app_name.camelize}::API"
+      cls = class_name.safe_constantize or return error(errors: ["#{class_name} class not found"], status: 501)
+      #cls.prefix("/#{app_name}")
+      #cls.endpoints.each {|e| e.options[:path] ||= "/#{app_name}"
+      cls.call(env)
+    end
 
     # !!! Maybe we should move Rack::Cors into the Apis, and support standard rack apps (not just Grape) eg. Rack::Builder apps
-    def self.instance
-      @instance ||= Rack::Builder.new do
-        use Rack::Cors, debug: true, logger: Logger.new(STDOUT) do
+    def self.stack
+      # Rack::Builder.new do
+      #   use Rack::Cors, debug: true, logger: Logger.new(STDOUT) do
+      #     allow do
+      #       origins '*'
+      #       resource '*', headers: :any, methods: [:get, :post]
+      #     end
+      #   end
+      #   run Grapeskin::App.new
+      # end.to_app
+
+      Rack::Builder.new do
+        use Rack::Cors, debug: true, logger: CONFIG[:error_logger] do
           allow do
             origins '*'
             resource '*', headers: :any, methods: [:get, :post]
           end
         end
-        run Grapeskin::App.new
+        use Rack::CommonLogger, CONFIG[:access_logger]
+        run Rack::ShowExceptions
+        run Grapeskin::App.new(CONFIG.dup)
       end.to_app
     end
 
@@ -151,26 +182,5 @@ module Grapeskin
       Rack::Response.new(options.to_json, options[:status])
     end
 
-    def call(env)
-      puts env.inspect
-
-      path = env['PATH_INFO']
-      parts = path.split('/').delete_if {|s| s==''}
-      app_name = parts[0]
-
-      return error(errors: ["no grape_paths"], status: 501) unless CONFIG[:grape_paths] && CONFIG[:grape_paths].length>0
-      api_path = nil
-      CONFIG[:grape_paths].each do |p|
-        ap = File.join(p,"#{app_name}/api.rb")
-        api_path = ap and break if File.exists? ap
-      end
-      return error() unless api_path
-      require api_path
-      class_name = "#{app_name.camelize}::API"
-      cls = class_name.safe_constantize or return error(errors: ["#{class_name} class not found"], status: 501)
-      #cls.prefix("/#{app_name}")
-      #cls.endpoints.each {|e| e.options[:path] ||= "/#{app_name}"
-      cls.call(env)
-    end
   end
 end
