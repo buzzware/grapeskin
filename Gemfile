@@ -6,6 +6,7 @@ gem 'grape-entity', '~> 0.4.4'
 gem 'json', '~> 1.7.7'
 gem 'rack-cors', '~> 0.2.8'
 gem 'mime-types'
+gem 'activesupport'
 gem 'buzztools'
 
 group :development do

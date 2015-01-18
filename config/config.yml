@@ -1,0 +1,2 @@
+error_log: error.log
+access_log: access.log

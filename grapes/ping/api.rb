@@ -6,5 +6,9 @@ module Ping
     get 'ping' do
       { ping: 'pong' }
     end
+
+    get 'bang' do
+      raise "Bang!"
+    end
   end
 end

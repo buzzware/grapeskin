@@ -1,4 +1,31 @@
 require 'uri'
+gem 'activesupport'
+
+DEFAULT_CONFIG = {
+	grape_paths: ['grapes'],
+  error_log: 'error.log',
+  access_log: 'access.log'
+}
+
+if appyml = YAML.load(File.read(File.expand_path('config/config.yml', File.join(File.dirname(__FILE__), '..')))) rescue nil
+	CONFIG = DEFAULT_CONFIG.merge appyml.symbolize_keys
+else
+	CONFIG = DEFAULT_CONFIG.clone
+end
+
+Logger.class_eval { alias :write :'<<' }
+
+access_log = File.new( File.expand_path(CONFIG[:access_log], File.join(File.dirname(__FILE__), '..')), 'a+' )
+access_log.sync = true
+CONFIG[:access_log] = access_log
+CONFIG[:access_logger] = Logger.new( access_log, 10, 10490000)
+
+error_log = File.new( File.expand_path(CONFIG[:error_log], File.join(File.dirname(__FILE__), '..')), 'a+' )
+error_log.sync = true
+CONFIG[:error_log] = error_log
+CONFIG[:error_logger] = Logger.new(CONFIG[:error_log],10,10490000)
+CONFIG[:error_logger].level = CONFIG[:error_logger_level] || ::Logger::INFO
+
 
 String.class_eval do
 
@@ -115,8 +142,8 @@ end
 module Grapeskin
   class App
 
-    def initialize(aOptions=nil)
-      aOptions ||= {}
+    def initialize(aConfig=nil)
+      @config = aConfig || {}
       # @filenames = ['', '.html', 'index.html', '/index.html']
       # @rack_static = ::Rack::Static.new(
       #   lambda { [404, {}, []] },
@@ -126,14 +153,15 @@ module Grapeskin
     end
 
     def call(env)
-      env['rack.logger'] = CONFIG[:error_logger]
+      env['rack.errors'] = @config[:error_log] if @config[:error_log]
+      env['rack.logger'] = @config[:error_logger] if @config[:error_logger]
       path = env['PATH_INFO']
       parts = path.split('/').delete_if {|s| s==''}
       app_name = parts[0]
 
-      return error(errors: ["no grape_paths"], status: 501) unless CONFIG[:grape_paths] && CONFIG[:grape_paths].length>0
+      return error(errors: ["no grape_paths"], status: 501) unless @config[:grape_paths] && @config[:grape_paths].length>0
       api_path = nil
-      CONFIG[:grape_paths].each do |p|
+      @config[:grape_paths].each do |p|
         p = File.expand_path(p, File.dirname(__FILE__)+'/..')
         ap = File.join(p,"#{app_name}/api.rb")
         api_path = ap and break if File.exists? ap
@@ -148,7 +176,7 @@ module Grapeskin
     end
 
     # !!! Maybe we should move Rack::Cors into the Apis, and support standard rack apps (not just Grape) eg. Rack::Builder apps
-    def self.stack
+    def self.stack(aConfig)
       # Rack::Builder.new do
       #   use Rack::Cors, debug: true, logger: Logger.new(STDOUT) do
       #     allow do
@@ -159,16 +187,26 @@ module Grapeskin
       #   run Grapeskin::App.new
       # end.to_app
 
+      # class MyLoggerMiddleware
+      #   def initialize(app, logger)
+      #     @app, @logger = app, logger
+      #   end
+      #   def call(env)
+      #     env['mylogger'] = @logger
+      #     @app.call(env)
+      #   end
+      # end
+
       Rack::Builder.new do
-        use Rack::Cors, debug: true, logger: CONFIG[:error_logger] do
+        use Rack::Cors, debug: true, logger: aConfig[:error_logger] do
           allow do
             origins '*'
             resource '*', headers: :any, methods: [:get, :post]
           end
         end
-        use Rack::CommonLogger, CONFIG[:access_logger]
+        use Rack::CommonLogger, aConfig[:access_logger]
         run Rack::ShowExceptions
-        run Grapeskin::App.new(CONFIG.dup)
+        run Grapeskin::App.new(aConfig)
       end.to_app
     end
 

@@ -1,3 +1,3 @@
 require File.expand_path('../config/environment', __FILE__)
 
-run Grapeskin::App.stack
+run Grapeskin::App.stack(CONFIG)

@@ -120,6 +120,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  activesupport
   buzztools
   grape (~> 0.10.1)
   grape-entity (~> 0.4.4)
